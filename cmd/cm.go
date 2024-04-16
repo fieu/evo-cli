@@ -111,9 +111,9 @@ func findGitRoot(currentDirectory string) (string, error) {
 	return "", fmt.Errorf("no Git repository found")
 }
 
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
+func contains(haystack []string, needle string) bool {
+	for _, a := range haystack {
+		if a == needle {
 			return true
 		}
 	}
