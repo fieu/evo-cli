@@ -78,13 +78,13 @@ func main() {
 	viper.AutomaticEnv()
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			panic("config file not found in $HOME/.config/evo-cli.yaml")
+			panic("config file not found in $HOME/.config/evo-cli.yml")
 		} else {
 			panic(fmt.Errorf("fatal error config file: %s", err))
 		}
 	}
 
-	// if the program has no args, display the art and exit
+	// Display art
 	if len(os.Args) == 1 {
 		fmt.Println(displayArt())
 	}
