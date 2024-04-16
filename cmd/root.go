@@ -2,41 +2,18 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/lipgloss/table"
+	"github.com/creack/pty"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-var bannerStyle = lipgloss.NewStyle().
-	Bold(true).
-	Foreground(lipgloss.Color("#FFE105")).
-	PaddingTop(1).
-	PaddingBottom(2).
-	PaddingLeft(2).
-	Width(22)
-
-var commandHeaderStyle = lipgloss.NewStyle().
-	Foreground(lipgloss.Color("#FFE105")).
-	Bold(false)
-
-var commandStyle = lipgloss.NewStyle().
-	Foreground(lipgloss.Color("#5EA704")).
-	MarginLeft(1).
-	Bold(false)
-
-var descriptionStyle = lipgloss.NewStyle().
-	Foreground(lipgloss.Color("#E3E3E3")).
-	Bold(false)
-
 var rootCmd = &cobra.Command{
-	Use:   "evo",
-	Short: bannerStyle.Render("E V O L I Z"),
-	Long:  bannerStyle.Render("E V O L I Z"),
+	Use: "evo",
 }
 
 type MakefileTarget struct {
@@ -44,31 +21,8 @@ type MakefileTarget struct {
 	Description string
 }
 
-func customHelpFunc(cmd *cobra.Command, args []string) {
-	s := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render
-	if cmd.Long != "" {
-		fmt.Println(descriptionStyle.Render(cmd.Long))
-	} else {
-		fmt.Println(descriptionStyle.Render(cmd.Short))
-	}
-
-	if len(cmd.Commands()) > 0 {
-		fmt.Println(commandHeaderStyle.Render("Commands:"))
-		t := table.New()
-		for _, c := range cmd.Commands() {
-			t.Row(s(c.Use), s(c.Short))
-		}
-		t.Border(lipgloss.HiddenBorder())
-		fmt.Println(t.Render())
-	}
-
-	fmt.Println()
-	fmt.Println(commandStyle.Render("Use \"" + cmd.Use + " [command] --help\" for more information about a command."))
-}
-
 func Execute() {
-	rootCmd.SetHelpFunc(customHelpFunc)
-	var makefileDirectory = viper.GetString("makefile_path")
+	makefileDirectory := viper.GetString("makefile_path")
 	cmd := exec.Command("make", "-C", makefileDirectory, "list-targets-full")
 
 	cmd.Dir = makefileDirectory
@@ -85,7 +39,7 @@ func Execute() {
 			continue
 		}
 		name := parts[0]
-		description := strings.Join(parts[1:], " ") // Rejoin the rest as the description.
+		description := strings.Join(parts[1:], " ")
 
 		targets = append(targets, MakefileTarget{Name: name, Description: description})
 	}
@@ -94,10 +48,34 @@ func Execute() {
 		target.Name = strings.TrimSpace(target.Name)
 		target.Description = strings.TrimSpace(target.Description)
 		makeTargetCmd := &cobra.Command{
-			Use:   commandStyle.Render(target.Name),
-			Short: descriptionStyle.Render(target.Description),
+			Use:   target.Name,
+			Short: target.Description,
 			Run: func(cmd *cobra.Command, args []string) {
-				exec.Command("make", target.Name).Run()
+				makeCommand := exec.Command("make", append([]string{target.Name}, args...)...)
+				makeCommand.Dir = makefileDirectory
+
+				makeCommand.Dir = makefileDirectory
+
+				// throw command in a pty cause docker is ass
+				ptmx, err := pty.Start(makeCommand)
+				if err != nil {
+					fmt.Println("Error:", err)
+					return
+				}
+				defer ptmx.Close()
+
+				go func() {
+					_, err := io.Copy(os.Stdout, ptmx)
+					if err != nil {
+						fmt.Println("Error:", err)
+					}
+					_, err = io.Copy(os.Stderr, ptmx)
+					if err != nil {
+						fmt.Println("Error:", err)
+					}
+				}()
+
+				_ = makeCommand.Wait()
 			},
 		}
 		rootCmd.AddCommand(makeTargetCmd)
@@ -109,5 +87,5 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
