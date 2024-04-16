@@ -11,7 +11,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// cmCmd represents the cm command
 var cmCmd = &cobra.Command{
 	Use:   "cm [--no-verify] <message>",
 	Short: "Commits changes to a git repository with an optional message",
@@ -99,8 +98,6 @@ to skip the pre-commit and pre-push hooks.`,
 
 func init() {
 	rootCmd.AddCommand(cmCmd)
-
-	// Here you will define your flags and configuration settings.
 	cmCmd.Flags().Bool("no-verify", false, "Skip pre-commit and pre-push hooks")
 }
 
