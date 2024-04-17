@@ -99,7 +99,6 @@ func searchDirectory(dir, word string) (string, error) {
 	return "", nil
 }
 
-// testloopCmd represents the testloop command
 var testloopCmd = &cobra.Command{
 	Use:     "test-loop [test-class-or-function name]",
 	Aliases: []string{"tl"},
