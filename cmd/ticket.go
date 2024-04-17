@@ -196,22 +196,19 @@ var ticketCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		jiraApiToken := viper.GetString("jira_api_token")
 		jiraEmail := viper.GetString("jira_email")
-		ticketId := ""
 
 		if jiraApiToken == "" || jiraEmail == "" {
 			fmt.Println("JIRA email and API token are required")
 			os.Exit(1)
 		}
+		ticketId, err := GetTicketFromBranch()
 
 		if len(args) == 0 {
 			fmt.Println("Getting current ticket from branch...")
-			ticketId, err := GetTicketFromBranch()
 			if err != nil {
 				fmt.Println("Error getting ticket from branch: Are you on a ticket branch?", err)
 				os.Exit(1)
 			}
-			fmt.Println("Ticket ID:", ticketId)
-			os.Exit(1)
 		}
 
 		if ticketId == "" {
@@ -263,21 +260,21 @@ var ticketCmd = &cobra.Command{
 		resolutionTime = resolutionTime.In(time.FixedZone("CET", 3600))
 		humanizedResolutionTime := humanize.Time(resolutionTime)
 
-		cyan := color.New(color.FgHiCyan).SprintfFunc()
+		yellow := color.New(color.FgHiYellow, color.Bold).SprintfFunc()
 		blue := color.New(color.FgHiBlue).SprintfFunc()
 		urlizeString := func(url string) string {
 			return "\033]8;;" + url + "\033\\" + url + "\033]8;;\033\\"
 		}
 
-		fmt.Printf("%-25s\t%s\n", cyan("Issue ID:"), blue(issue.Key+" - "+issue.Fields.Summary))
-		fmt.Printf("%-25s\t%s\n", cyan("Status:"), blue(issue.Fields.Status.Name))
-		fmt.Printf("%-25s\t%s\n", cyan("Assignee:"), blue(issue.Fields.Assignee.DisplayName))
-		fmt.Printf("%-25s\t%s\n", cyan("Reporter:"), blue(issue.Fields.Reporter.DisplayName))
-		fmt.Printf("%-25s\t%s\n", cyan("Created:"), blue(issue.Fields.Created+" CET "+"("+humanizedCreatedTime+")"))
-		fmt.Printf("%-25s\t%s\n", cyan("Updated:"), blue(issue.Fields.Updated+" CET "+"("+humanizedUpdatedTime+")"))
-		fmt.Printf("%-25s\t%s\n", cyan("Status:"), blue(issue.Fields.Resolution.Name))
-		fmt.Printf("%-25s\t%s\n", cyan("Resolution Date:"), blue(issue.Fields.Resolutiondate+" CET "+"("+humanizedResolutionTime+")"))
-		fmt.Printf("%-25s\t%s\n", cyan("URL:"), blue(urlizeString(issue.Self)))
+		fmt.Printf("%-30s\t%s\n", yellow("Issue ID:"), blue(issue.Key+" - "+issue.Fields.Summary))
+		fmt.Printf("%-30s\t%s\n", yellow("Status:"), blue(issue.Fields.Status.Name))
+		fmt.Printf("%-30s\t%s\n", yellow("Assignee:"), blue(issue.Fields.Assignee.DisplayName))
+		fmt.Printf("%-30s\t%s\n", yellow("Reporter:"), blue(issue.Fields.Reporter.DisplayName))
+		fmt.Printf("%-30s\t%s\n", yellow("Created:"), blue(issue.Fields.Created+" CET "+"("+humanizedCreatedTime+")"))
+		fmt.Printf("%-30s\t%s\n", yellow("Updated:"), blue(issue.Fields.Updated+" CET "+"("+humanizedUpdatedTime+")"))
+		fmt.Printf("%-30s\t%s\n", yellow("Status:"), blue(issue.Fields.Resolution.Name))
+		fmt.Printf("%-30s\t%s\n", yellow("Resolution Date:"), blue(issue.Fields.Resolutiondate+" CET "+"("+humanizedResolutionTime+")"))
+		fmt.Printf("%-30s\t%s\n", yellow("URL:"), blue(urlizeString(issue.Self)))
 
 	},
 }
