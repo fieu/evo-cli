@@ -5,7 +5,9 @@ go 1.22.2
 require (
 	github.com/charmbracelet/lipgloss v0.10.0
 	github.com/creack/pty v1.1.21
+	github.com/dustin/go-humanize v1.0.1
 	github.com/fatih/color v1.16.0
+	github.com/k0kubun/pp/v3 v3.2.0
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.18.2
 )
