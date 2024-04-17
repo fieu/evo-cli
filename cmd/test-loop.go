@@ -108,8 +108,10 @@ var testloopCmd = &cobra.Command{
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		makefileDirectory := viper.GetString("makefile_path")
-		dirPath := "/Users/sheldon/code/triiptic/evoliz"
-		// dirPath := "."
+		dirPath := "."
+		if len(cmd.Flags().Lookup(cmd.Flags().Lookup("dir").Name).Value.String()) > 0 {
+			dirPath = cmd.Flags().Lookup("dir").Value.String()
+		}
 		filePath, err := findMatchingFile(dirPath, args[0])
 		if err != nil {
 			fmt.Println("Error:", err.Error())
@@ -148,4 +150,6 @@ var testloopCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(testloopCmd)
+
+	testloopCmd.Flags().StringP("dir", "d", "", "Directory to search for test files")
 }
