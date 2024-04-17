@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
 
@@ -19,6 +20,8 @@ You can specify a commit message directly and use the '--no-verify' flag
 to skip the pre-commit and pre-push hooks.`,
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		red := color.New(color.FgHiRed).SprintfFunc()
+		yellow := color.New(color.FgHiYellow).SprintfFunc()
 		noVerify, _ := cmd.Flags().GetBool("no-verify")
 
 		currentDir, _ := os.Getwd()
@@ -72,10 +75,10 @@ to skip the pre-commit and pre-push hooks.`,
 		}
 
 		if noVerify {
-			fmt.Println("\033[91mCommit will not be verified.\033[0m")
+			fmt.Println(red("Commit will not be verified."))
 		}
 
-		fmt.Printf("Commit message is:\n> \033[93m%s\033[0m\nConfirm? (y/n): ", commitMessage)
+		fmt.Printf("Commit message is:\n> " + yellow(commitMessage) + "\nConfirm? (y/n): ")
 		scanner := bufio.NewScanner(os.Stdin)
 		scanner.Scan()
 		confirm := scanner.Text()
