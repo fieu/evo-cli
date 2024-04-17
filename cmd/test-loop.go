@@ -109,7 +109,7 @@ var testloopCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		makefileDirectory := viper.GetString("makefile_path")
 		dirPath := "."
-		if len(cmd.Flags().Lookup(cmd.Flags().Lookup("dir").Name).Value.String()) > 0 {
+		if cmd.Flags().Lookup("dir").Value.String() != "" {
 			dirPath = cmd.Flags().Lookup("dir").Value.String()
 		}
 		filePath, err := findMatchingFile(dirPath, args[0])
