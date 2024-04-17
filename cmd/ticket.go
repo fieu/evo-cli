@@ -275,7 +275,6 @@ var ticketCmd = &cobra.Command{
 		fmt.Printf("%-30s\t%s\n", yellow("Status:"), blue(issue.Fields.Resolution.Name))
 		fmt.Printf("%-30s\t%s\n", yellow("Resolution Date:"), blue(issue.Fields.Resolutiondate+" CET "+"("+humanizedResolutionTime+")"))
 		fmt.Printf("%-30s\t%s\n", yellow("URL:"), blue(urlizeString(issue.Self)))
-
 	},
 }
 
