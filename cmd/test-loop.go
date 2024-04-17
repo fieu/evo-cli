@@ -64,7 +64,7 @@ func searchDirectory(dir, word string) (string, error) {
 		}
 
 		// If have no permission to read the file, skip it.
-		if info.Mode().Perm()&0400 == 0 {
+		if info.Mode().Perm()&0o400 == 0 {
 			return nil
 		}
 
@@ -84,7 +84,6 @@ func searchDirectory(dir, word string) (string, error) {
 
 		return nil
 	})
-
 	if err != nil {
 		return "", err // return with error encountered during walking
 	}
