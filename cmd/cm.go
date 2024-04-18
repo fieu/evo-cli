@@ -84,7 +84,7 @@ to skip the pre-commit and pre-push hooks.`,
 		confirm := scanner.Text()
 		if strings.ToLower(confirm) != "y" {
 			fmt.Println("Commit cancelled.")
-			os.Exit(1)
+			os.Exit(0)
 		}
 
 		commitArgs := []string{"git", "commit", "-m", commitMessage}
