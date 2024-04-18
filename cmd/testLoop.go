@@ -3,17 +3,21 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 
 	"github.com/creack/pty"
 	"github.com/fatih/color"
 	hook "github.com/robotn/gohook"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"golang.org/x/term"
 )
 
 func findMatchingFile(baseDir, word string) (string, error) {
@@ -22,6 +26,11 @@ func findMatchingFile(baseDir, word string) (string, error) {
 	for _, dir := range testDirs {
 		// Construct the full directory path to search in.
 		fullPath := filepath.Join(baseDir, dir)
+
+		// If directory doesn't exist, skip it.
+		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+			continue
+		}
 
 		// Perform the search in the specified directory.
 		filePath, err := searchDirectory(fullPath, word)
@@ -110,6 +119,12 @@ var testloopCmd = &cobra.Command{
 		if dirPath == "" {
 			dirPath = "."
 		}
+		absoluteDirPath, err := filepath.Abs(dirPath)
+		if err != nil {
+			fmt.Println("Error:", err.Error())
+			return
+		}
+		fmt.Println(color.HiYellowString("Searching for test"), color.HiBlueString(args[0]), color.HiYellowString("in directory"), color.HiBlueString(absoluteDirPath)+color.HiYellowString("..."))
 
 		filePath, err := findMatchingFile(dirPath, args[0])
 		if err != nil {
@@ -121,16 +136,17 @@ var testloopCmd = &cobra.Command{
 			return
 		}
 		testBaseName := filepath.Base(filePath)
+		testFilter := strings.TrimSpace(args[0])
 
-		fmt.Println("Automatically starting the test:", color.HiGreenString(args[0]), "("+color.GreenString(testBaseName)+")")
-		runTest(dirPath, filePath)
+		fmt.Println("Running test:", color.HiGreenString(args[0]), "("+color.GreenString(testBaseName)+")")
+		runTest(dirPath, filePath, testFilter)
 
 		fmt.Println("Press CTRL+0 to restart the test", color.HiGreenString(args[0]), "("+color.GreenString(testBaseName)+")")
 
 		// Register the hotkey
 		hook.Register(hook.KeyHold, []string{"ctrl", "0"}, func(e hook.Event) {
 			fmt.Println("Restarting test", color.HiGreenString(args[0]), "("+color.GreenString(testBaseName)+")")
-			runTest(dirPath, filePath)
+			runTest(dirPath, filePath, testFilter)
 		})
 
 		s := hook.Start()
@@ -139,28 +155,41 @@ var testloopCmd = &cobra.Command{
 	},
 }
 
-func runTest(dirPath, filePath string) {
+func runTest(dirPath, filePath, testFilter string) {
 	makefileDirectory := viper.GetString("makefile_path")
-	makeCommand := exec.Command("make", "-C", makefileDirectory, "test-file", "FILTER="+filePath)
+	makeCommand := exec.Command("make", "-C", makefileDirectory, "test-file", "FILTER="+testFilter)
 	makeCommand.Dir = dirPath
 
+	// throw command in a pty cause docker is ass
 	ptmx, err := pty.Start(makeCommand)
 	if err != nil {
-		fmt.Println("Error starting command:", err)
+		fmt.Println("Error:", err)
 		return
 	}
 
-	// Output the results to the terminal
+	// Handle pty size.
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, syscall.SIGWINCH)
 	go func() {
-		io.Copy(os.Stdout, ptmx)
-		io.Copy(os.Stderr, ptmx)
+		for range ch {
+			if err := pty.InheritSize(os.Stdin, ptmx); err != nil {
+				log.Printf("error resizing pty: %s", err)
+			}
+		}
 	}()
+	ch <- syscall.SIGWINCH                        // Initial resize.
+	defer func() { signal.Stop(ch); close(ch) }() // Cleanup signals when done.
 
-	err = makeCommand.Wait()
-	ptmx.Close()
+	// set stdin in raw mode. (for ctrl+d and shit)
+	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
 	if err != nil {
-		fmt.Println("Error during command execution:", err)
+		panic(err)
 	}
+	defer func() { _ = term.Restore(int(os.Stdin.Fd()), oldState) }() // Best effort.
+
+	// Copy stdin to the pty and the pty to stdout.
+	go func() { _, _ = io.Copy(ptmx, os.Stdin) }()
+	_, _ = io.Copy(os.Stdout, ptmx)
 }
 
 func init() {
