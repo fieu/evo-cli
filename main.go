@@ -78,7 +78,8 @@ func main() {
 	viper.AutomaticEnv()
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			panic("config file not found in $HOME/.config/evo-cli.yml")
+			fmt.Println("config file not found in $HOME/.config/evo-cli.yml")
+			os.Exit(1)
 		} else {
 			panic(fmt.Errorf("fatal error config file: %s", err))
 		}

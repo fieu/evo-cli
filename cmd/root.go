@@ -3,13 +3,17 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/creack/pty"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"golang.org/x/term"
 )
 
 var rootCmd = &cobra.Command{
@@ -51,10 +55,9 @@ func Execute() {
 			Use:   target.Name,
 			Short: target.Description,
 			Run: func(cmd *cobra.Command, args []string) {
-				makeCommand := exec.Command("make", append([]string{target.Name}, args...)...)
-				makeCommand.Dir = makefileDirectory
-
-				makeCommand.Dir = makefileDirectory
+				makeArgs := append([]string{"-C", makefileDirectory}, append([]string{target.Name}, args...)...)
+				makeCommand := exec.Command("make", makeArgs...)
+				makeCommand.Dir = "."
 
 				// throw command in a pty cause docker is ass
 				ptmx, err := pty.Start(makeCommand)
@@ -62,20 +65,29 @@ func Execute() {
 					fmt.Println("Error:", err)
 					return
 				}
-				defer ptmx.Close()
-
+				// Handle pty size.
+				ch := make(chan os.Signal, 1)
+				signal.Notify(ch, syscall.SIGWINCH)
 				go func() {
-					_, err := io.Copy(os.Stdout, ptmx)
-					if err != nil {
-						fmt.Println("Error:", err)
-					}
-					_, err = io.Copy(os.Stderr, ptmx)
-					if err != nil {
-						fmt.Println("Error:", err)
+					for range ch {
+						if err := pty.InheritSize(os.Stdin, ptmx); err != nil {
+							log.Printf("error resizing pty: %s", err)
+						}
 					}
 				}()
+				ch <- syscall.SIGWINCH                        // Initial resize.
+				defer func() { signal.Stop(ch); close(ch) }() // Cleanup signals when done.
 
-				_ = makeCommand.Wait()
+				// set stdin in raw mode. (for ctrl+d and shit)
+				oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
+				if err != nil {
+					panic(err)
+				}
+				defer func() { _ = term.Restore(int(os.Stdin.Fd()), oldState) }() // Best effort.
+
+				// Copy stdin to the pty and the pty to stdout.
+				go func() { _, _ = io.Copy(ptmx, os.Stdin) }()
+				_, _ = io.Copy(os.Stdout, ptmx)
 			},
 		}
 		rootCmd.AddCommand(makeTargetCmd)
