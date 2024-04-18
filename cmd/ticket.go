@@ -204,11 +204,11 @@ var ticketCmd = &cobra.Command{
 		ticketId, err := GetTicketFromBranch()
 
 		if len(args) == 0 {
-			fmt.Println("Getting current ticket from branch...")
 			if err != nil {
 				fmt.Println("Error getting ticket from branch: Are you on a ticket branch?", err)
 				os.Exit(1)
 			}
+			fmt.Println("Getting current ticket from branch...")
 		}
 
 		if ticketId == "" {

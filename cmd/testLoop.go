@@ -135,17 +135,17 @@ var testloopCmd = &cobra.Command{
 			fmt.Println("No match found for:", args[0])
 			return
 		}
-		testBaseName := filepath.Base(filePath)
+		testRelativePath, _ := filepath.Rel(dirPath, filePath)
 		testFilter := strings.TrimSpace(args[0])
 
-		fmt.Println("Running test:", color.HiGreenString(args[0]), "("+color.GreenString(testBaseName)+")")
+		fmt.Println("Running test:", color.HiGreenString(args[0]), "("+color.GreenString(testRelativePath)+")")
 		runTest(dirPath, filePath, testFilter)
 
-		fmt.Println("Press CTRL+0 to restart the test", color.HiGreenString(args[0]), "("+color.GreenString(testBaseName)+")")
+		fmt.Println("Press CTRL+0 to restart the test", color.HiGreenString(args[0]), "("+color.GreenString(testRelativePath)+")")
 
 		// Register the hotkey
 		hook.Register(hook.KeyHold, []string{"ctrl", "0"}, func(e hook.Event) {
-			fmt.Println("Restarting test", color.HiGreenString(args[0]), "("+color.GreenString(testBaseName)+")")
+			fmt.Println("Restarting test", color.HiGreenString(args[0]), "("+color.GreenString(testRelativePath)+")")
 			runTest(dirPath, filePath, testFilter)
 		})
 
