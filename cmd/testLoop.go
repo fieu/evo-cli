@@ -11,6 +11,7 @@ import (
 
 	"github.com/creack/pty"
 	"github.com/fatih/color"
+	hook "github.com/robotn/gohook"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -101,15 +102,15 @@ func searchDirectory(dir, word string) (string, error) {
 var testloopCmd = &cobra.Command{
 	Use:     "test-loop [test-class-or-function name]",
 	Aliases: []string{"tl"},
-	Short:   "Run a test class/function in a loop, re-executing it constantly",
-	Long:    `Run a test class/function in a loop, re-executing it constantly`,
+	Short:   "Run a test class/function on demand, restart it with Ctrl+0",
+	Long:    `Run a test class/function on demand, restart it with Ctrl+0`,
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		makefileDirectory := viper.GetString("makefile_path")
-		dirPath := "."
-		if cmd.Flags().Lookup("dir").Value.String() != "" {
-			dirPath = cmd.Flags().Lookup("dir").Value.String()
+		dirPath := viper.GetString("dir")
+		if dirPath == "" {
+			dirPath = "."
 		}
+
 		filePath, err := findMatchingFile(dirPath, args[0])
 		if err != nil {
 			fmt.Println("Error:", err.Error())
@@ -119,31 +120,47 @@ var testloopCmd = &cobra.Command{
 			fmt.Println("No match found for:", args[0])
 			return
 		}
+		testBaseName := filepath.Base(filePath)
 
-		fmt.Println("Running test", color.HiGreenString(args[0]), "in a loop", "("+color.GreenString(filepath.Base(filePath))+")")
+		fmt.Println("Automatically starting the test:", color.HiGreenString(args[0]), "("+color.GreenString(testBaseName)+")")
+		runTest(dirPath, filePath)
 
-		for {
-			makeCommand := exec.Command("make", "-C", makefileDirectory, "test-file", "FILTER="+filePath)
-			makeCommand.Dir = dirPath
-			ptmx, err := pty.Start(makeCommand)
-			if err != nil {
-				fmt.Println("Error starting command:", err)
-				return
-			}
+		fmt.Println("Press CTRL+0 to restart the test", color.HiGreenString(args[0]), "("+color.GreenString(testBaseName)+")")
 
-			go func() {
-				io.Copy(os.Stdout, ptmx)
-				io.Copy(os.Stderr, ptmx)
-			}()
+		// Register the hotkey
+		hook.Register(hook.KeyHold, []string{"ctrl", "0"}, func(e hook.Event) {
+			fmt.Println("Restarting test", color.HiGreenString(args[0]), "("+color.GreenString(testBaseName)+")")
+			runTest(dirPath, filePath)
+		})
 
-			err = makeCommand.Wait()
-			ptmx.Close()
-			if err != nil {
-				fmt.Println("Error during command execution:", err)
-				return
-			}
-		}
+		s := hook.Start()
+		defer hook.End()
+		<-hook.Process(s)
 	},
+}
+
+func runTest(dirPath, filePath string) {
+	makefileDirectory := viper.GetString("makefile_path")
+	makeCommand := exec.Command("make", "-C", makefileDirectory, "test-file", "FILTER="+filePath)
+	makeCommand.Dir = dirPath
+
+	ptmx, err := pty.Start(makeCommand)
+	if err != nil {
+		fmt.Println("Error starting command:", err)
+		return
+	}
+
+	// Output the results to the terminal
+	go func() {
+		io.Copy(os.Stdout, ptmx)
+		io.Copy(os.Stderr, ptmx)
+	}()
+
+	err = makeCommand.Wait()
+	ptmx.Close()
+	if err != nil {
+		fmt.Println("Error during command execution:", err)
+	}
 }
 
 func init() {
