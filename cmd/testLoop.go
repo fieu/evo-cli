@@ -102,7 +102,7 @@ func searchDirectory(dir, word string) (string, error) {
 	if len(matchedFiles) == 1 {
 		return matchedFiles[0], nil
 	} else if len(matchedFiles) > 1 {
-		return "", fmt.Errorf("multiple instances of 'function %s' exist, please rename your function", word)
+		return "", fmt.Errorf("multiple instances of 'public function %s' exist, please rename your test method", word)
 	}
 
 	return "", nil
