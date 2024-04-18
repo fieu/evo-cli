@@ -91,9 +91,9 @@ to skip the pre-commit and pre-push hooks.`,
 		if noVerify {
 			commitArgs = append(commitArgs, "--no-verify")
 		}
-		_, err = exec.Command(commitArgs[0], commitArgs[1:]...).Output()
+		output, err := exec.Command(commitArgs[0], commitArgs[1:]...).Output()
 		if err != nil {
-			fmt.Println("Error committing changes")
+			fmt.Printf("error committing changes:\n%s", output)
 			os.Exit(1)
 		}
 	},
