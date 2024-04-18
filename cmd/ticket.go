@@ -274,7 +274,7 @@ var ticketCmd = &cobra.Command{
 		fmt.Printf("%-30s\t%s\n", yellow("Updated:"), blue(issue.Fields.Updated+" CET "+"("+humanizedUpdatedTime+")"))
 		fmt.Printf("%-30s\t%s\n", yellow("Status:"), blue(issue.Fields.Resolution.Name))
 		fmt.Printf("%-30s\t%s\n", yellow("Resolution Date:"), blue(issue.Fields.Resolutiondate+" CET "+"("+humanizedResolutionTime+")"))
-		fmt.Printf("%-30s\t%s\n", yellow("URL:"), blue(urlizeString(issue.Self)))
+		fmt.Printf("%-30s\t%s\n", yellow("URL:"), blue(urlizeString("https://triipteam.atlassian.net/browse/"+issue.Key)))
 	},
 }
 
