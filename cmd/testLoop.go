@@ -108,6 +108,11 @@ func searchDirectory(dir, word string) (string, error) {
 	return "", nil
 }
 
+var red = color.New(color.FgHiRed).SprintfFunc()
+var yellow = color.New(color.FgHiYellow).SprintfFunc()
+var green = color.New(color.FgHiGreen).SprintfFunc()
+var blue = color.New(color.FgHiBlue).SprintfFunc()
+
 var testloopCmd = &cobra.Command{
 	Use:     "test-loop [test-class-or-function name]",
 	Aliases: []string{"tl"},
@@ -119,12 +124,13 @@ var testloopCmd = &cobra.Command{
 		if dirPath == "" {
 			dirPath = "."
 		}
+
 		absoluteDirPath, err := filepath.Abs(dirPath)
 		if err != nil {
 			fmt.Println("Error:", err.Error())
 			return
 		}
-		fmt.Println(color.HiYellowString("Searching for test"), color.HiBlueString(args[0]), color.HiYellowString("in directory"), color.HiBlueString(absoluteDirPath)+color.HiYellowString("..."))
+		fmt.Println(yellow("Searching for test"), blue(args[0]), yellow("in directory"), blue(absoluteDirPath)+yellow("..."))
 
 		filePath, err := findMatchingFile(dirPath, args[0])
 		if err != nil {
@@ -132,21 +138,21 @@ var testloopCmd = &cobra.Command{
 			return
 		}
 		if filePath == "" {
-			fmt.Println("No match found for:", args[0])
+			fmt.Println(red("No match found for:"), blue(args[0]))
 			return
 		}
 		testRelativePath, _ := filepath.Rel(dirPath, filePath)
 		testFilter := strings.TrimSpace(args[0])
 
-		fmt.Println("Running test:", color.HiGreenString(args[0]), "("+color.GreenString(testRelativePath)+")")
-		runTest(dirPath, filePath, testFilter)
+		fmt.Println(yellow("Running test:"), green(args[0]), "("+color.GreenString(testRelativePath)+")")
+		runTest(dirPath, testFilter)
 
-		fmt.Println("Press CTRL+0 to restart the test", color.HiGreenString(args[0]), "("+color.GreenString(testRelativePath)+")")
-
+		displayRestartMessage(args[0], testRelativePath)
 		// Register the hotkey
-		hook.Register(hook.KeyHold, []string{"ctrl", "0"}, func(e hook.Event) {
-			fmt.Println("Restarting test", color.HiGreenString(args[0]), "("+color.GreenString(testRelativePath)+")")
-			runTest(dirPath, filePath, testFilter)
+		hook.Register(hook.KeyHold, []string{"ctrl", "alt", "shift", "q"}, func(e hook.Event) {
+			fmt.Println(yellow("\nRestarting test"), green(args[0]), "("+green(testRelativePath)+")")
+			runTest(dirPath, testFilter)
+			displayRestartMessage(args[0], testRelativePath)
 		})
 
 		s := hook.Start()
@@ -155,7 +161,11 @@ var testloopCmd = &cobra.Command{
 	},
 }
 
-func runTest(dirPath, filePath, testFilter string) {
+func displayRestartMessage(testName, testRelativePath string) {
+	fmt.Println(blue("\n[>]"), yellow("Press CTRL+ALT+SHIFT+Q to restart the test"), green(testName), "("+green(testRelativePath)+")")
+}
+
+func runTest(dirPath, testFilter string) {
 	makefileDirectory := viper.GetString("makefile_path")
 	makeCommand := exec.Command("make", "-C", makefileDirectory, "test-file", "FILTER="+testFilter)
 	makeCommand.Dir = dirPath
