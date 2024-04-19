@@ -3,13 +3,19 @@ package cmd
 import (
 	"bufio"
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 
+	"github.com/creack/pty"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var cmCmd = &cobra.Command{
@@ -91,11 +97,38 @@ to skip the pre-commit and pre-push hooks.`,
 		if noVerify {
 			commitArgs = append(commitArgs, "--no-verify")
 		}
-		output, err := exec.Command(commitArgs[0], commitArgs[1:]...).Output()
+		cmCommand := exec.Command(commitArgs[0], commitArgs[1:]...)
+
+		// throw command in a pty cause docker is ass
+		ptmx, err := pty.Start(cmCommand)
 		if err != nil {
-			fmt.Printf("error committing changes:\n%s", output)
-			os.Exit(1)
+			fmt.Println("Error:", err)
+			return
 		}
+
+		// Handle pty size.
+		ch := make(chan os.Signal, 1)
+		signal.Notify(ch, syscall.SIGWINCH)
+		go func() {
+			for range ch {
+				if err := pty.InheritSize(os.Stdin, ptmx); err != nil {
+					log.Printf("error resizing pty: %s", err)
+				}
+			}
+		}()
+		ch <- syscall.SIGWINCH                        // Initial resize.
+		defer func() { signal.Stop(ch); close(ch) }() // Cleanup signals when done.
+
+		// set stdin in raw mode. (for ctrl+d and shit)
+		oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
+		if err != nil {
+			panic(err)
+		}
+		defer func() { _ = term.Restore(int(os.Stdin.Fd()), oldState) }() // Best effort.
+
+		// Copy stdin to the pty and the pty to stdout.
+		go func() { _, _ = io.Copy(ptmx, os.Stdin) }()
+		_, _ = io.Copy(os.Stdout, ptmx)
 	},
 }
 
