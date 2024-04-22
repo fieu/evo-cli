@@ -16,10 +16,8 @@ import (
 	"golang.org/x/term"
 )
 
-var ProgramName = "evo"
-
 var rootCmd = &cobra.Command{
-	Use: ProgramName,
+	Use: "evo",
 }
 
 type MakefileTarget struct {
