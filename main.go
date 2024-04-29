@@ -2,20 +2,20 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
 	"os"
-	"strings"
+	"os/signal"
+	"syscall"
 
 	"evo-cli/cmd"
 
 	_ "embed"
 
+	"evo-cli/internal"
+
 	"github.com/charmbracelet/lipgloss"
+	"github.com/fatih/color"
 	"github.com/spf13/viper"
 )
-
-//go:embed quotes.txt
-var quotesFile string
 
 var bananaArt = `
              ████              
@@ -51,25 +51,20 @@ func displayArt() string {
 		MarginLeft(2)
 
 	return bananaStyle.Render(bananaArt) + "\n\n" +
-		bannerStyle.Render("E V O L I Z") + "  –  " + displayQuote() + "\n"
+		bannerStyle.Render("E V O L I Z") + "  –  " + internal.GetQuote() + "\n"
 }
 
-func displayQuote() string {
-	quoteStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#707070")).
-		Italic(true)
-
-	quotes := strings.Split(quotesFile, "\n")
-	chosen := quotes[rand.Intn(len(quotes))]
-	parts := strings.SplitN(chosen, " - ", 2)
-
-	if len(parts) == 2 {
-		return quoteStyle.Render(fmt.Sprintf("“%s” – %s", parts[0], parts[1]))
-	}
-	return quoteStyle.Render(chosen)
-}
+var red = color.New(color.FgHiRed).SprintfFunc()
 
 func main() {
+	// Setup global signal handling
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		fmt.Println(red("\nReceived CTRL+C, shutting down..."))
+		os.Exit(0)
+	}()
 	// Setup config
 	viper.SetConfigName("evo-cli")
 	viper.SetConfigType("yaml")

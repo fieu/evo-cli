@@ -14,7 +14,7 @@ import (
 
 	"github.com/creack/pty"
 	"github.com/fatih/color"
-	hook "github.com/robotn/gohook"
+	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"golang.org/x/term"
@@ -147,23 +147,14 @@ var testloopCmd = &cobra.Command{
 		fmt.Println(yellow("Running test:"), green(args[0]), "("+color.GreenString(testRelativePath)+")")
 		runTest(dirPath, testFilter)
 
-		displayRestartMessage(args[0], testRelativePath)
-		// Register the hotkey
-		hook.Register(hook.KeyHold, []string{"ctrl", "alt", "shift", "q"}, func(e hook.Event) {
-			fmt.Println(yellow("\nRestarting test"), green(args[0]), "("+green(testRelativePath)+")")
-			runTest(dirPath, testFilter)
-			displayRestartMessage(args[0], testRelativePath)
-		})
-
-		s := hook.Start()
-		defer hook.End()
-		<-hook.Process(s)
+		// Start watching directories and running tests on file changes
+		watchAndRunTests(dirPath, testFilter, testRelativePath)
 	},
 }
 
-func displayRestartMessage(testName, testRelativePath string) {
-	fmt.Println(blue("\n[>]"), yellow("Press CTRL+ALT+SHIFT+Q to restart the test"), green(testName), "("+green(testRelativePath)+")")
-}
+// func displayRestartMessage(testName, testRelativePath string) {
+// 	fmt.Println(blue("\n[>]"), yellow("Press Enter twice to restart the test"), green(testName), "("+green(testRelativePath)+")")
+// }
 
 func runTest(dirPath, testFilter string) {
 	makefileDirectory := viper.GetString("makefile_path")
@@ -206,4 +197,44 @@ func init() {
 	rootCmd.AddCommand(testloopCmd)
 
 	testloopCmd.Flags().StringP("dir", "d", "", "Directory to search for test files")
+}
+
+func watchAndRunTests(testFilePath, testFilter, testRelativePath string) {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Fatal("Failed to create watcher:", err)
+	}
+	defer watcher.Close()
+
+	// Add only the specific test file to the watcher
+	err = watcher.Add(testRelativePath)
+	if err != nil {
+		log.Fatal("Failed to add file to watcher:", err)
+	}
+
+	fmt.Println(green("Watching for changes in file:"), yellow(testRelativePath))
+
+	go func() {
+		for {
+			select {
+			case event, ok := <-watcher.Events:
+				if !ok {
+					return
+				}
+
+				// Ensure event.Name matches the testFilePath
+				if event.Op&(fsnotify.Write) != 0 {
+					fmt.Println(green("File changed:"), yellow(event.Name))
+					runTest(filepath.Dir(testFilePath), testFilter)
+				}
+			case err, ok := <-watcher.Errors:
+				if !ok {
+					return
+				}
+				log.Println("Watcher error:", err)
+			}
+		}
+	}()
+
+	<-make(chan bool) // Block indefinitely to keep the watcher running
 }
