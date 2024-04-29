@@ -65,6 +65,10 @@ func main() {
 		fmt.Println(red("\nReceived CTRL+C, shutting down..."))
 		os.Exit(0)
 	}()
+	// Load configuration from evo-cli.yml
+	// The configuration file is expected to be located either in the $HOME/.config directory
+	// or in the current working directory. It contains various settings such as the path to the
+	// Makefile and Jira API credentials which are used by the CLI commands.
 	// Setup config
 	viper.SetConfigName("evo-cli")
 	viper.SetConfigType("yaml")
